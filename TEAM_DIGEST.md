@@ -1,4 +1,4 @@
-# TEAM_DIGEST.md — team-daily-digest v0.1
+# TEAM_DIGEST.md — team-daily-digest v0.1.1
 
 # This file is read by the Team Daily Digest Routine at the start of each run.
 # Update this file → the digest inherits the update on the next run.
@@ -63,7 +63,6 @@ Read `Project Registry — Core` (`smartsheet_core_sheet_id`) **once** via `get_
 |---|---|
 | Project ID | `5743034995347332` |
 | Display Name | `3491235181662084` |
-| Hub Canvas ID | `5180085041926020` |
 | Claude Canvas ID | `3909624393928580` |
 | Channel ID | `7431884855611268` |
 
@@ -93,7 +92,7 @@ For each non-archived project, in **parallel batches of ~6** (same pattern as th
 
 Pivot the `(person, project, summary)` tuples **by project** (the read already iterated projects, not people — see Step 2). For each active project, merge its tuples into one update and name the contributor(s) **inline** in the summary. Collapse exact echoes keyed on `(person, project, day)`, keeping the richer summary. Then render per the Message format below:
 
-- One bullet per **project** that had activity: lead with the project's health emoji, then the project name linked to its Hub canvas, then a one-line summary that names who did what inline ("…— Josh approved the P&I drawing; Adam closed the safety valves").
+- One bullet per **project** that had activity: lead with the project's health emoji, then the **bold project display name** followed by its **project-channel pill** `<#channel_id>` (or just the bold display name if the project has no channel), then a one-line summary that names who did what inline ("…— Josh approved the P&I drawing; Adam closed the safety valves").
 - **No per-person blocks and no per-person active/blocked counts** — those are deliberately excluded from this public post (they live in the runner's private 1:1-prep view). Name contributor *presence* inside a project line; never list who was absent.
 - A **Quiet** line naming projects with no activity since `since`.
 - A **Couldn't read** line for any access failures (omit if none).
@@ -118,9 +117,9 @@ Posted to `team_digest_channel_id` via `slack_send_message`. This is a **chat me
 ```
 :sunrise: *seed Team Daily — what's moving* · [date range: since → today]
 
-• [health emoji] *<Project Display Name>* — [one-line summary, contributor(s) named inline]
-• [health emoji] *<Project Display Name>* — [one-line summary, contributor(s) named inline]
-• [health emoji] *<Project Display Name>* — [one-line summary, contributor(s) named inline]
+• [health emoji] *Project Display Name* <#channel_id> — [one-line summary, contributor(s) named inline]
+• [health emoji] *Project Display Name* <#channel_id> — [one-line summary, contributor(s) named inline]
+• [health emoji] *Project Display Name* <#channel_id> — [one-line summary, contributor(s) named inline]
 
 *Quiet:* Proj, Proj — no activity since last digest
 *Couldn't read:* Proj ([error])   ← omit line if none
@@ -129,8 +128,8 @@ _seed Team Daily Digest · [M] active · [Q] quiet · since [date] · reply in-t
 ```
 
 Rules:
-- **One bullet per active project** = `• [health emoji] *<Project>* — [summary]`. The summary names the contributor(s) **inline** ("Josh approved …; Adam closed …"). Lead with the health emoji; bold the project name, linked to its Hub canvas.
-- Project name links to its **Hub canvas** URL (derive from the Hub Canvas ID — `https://jobyaviation.enterprise.slack.com/docs/T046X1H57/[hub_canvas_id]`).
+- **One bullet per active project** = `• [health emoji] *Display Name* <#channel_id> — [summary]`. The summary names the contributor(s) **inline** ("Josh approved …; Adam closed …"). Lead with the health emoji; **bold the project display name**, then its project-channel pill.
+- **Link via the project channel, NOT the Hub canvas.** Put the project's channel as a chat pill `<#channel_id>` right after the bold display name (use the `Channel ID` from Step 2). ⚠️ Do **not** link the Hub canvas (`/docs/…` URL): Slack attaches any linked canvas as a *file* into the team channel — cluttering the channel's Files and broadening that canvas's access beyond its own project channel. A channel pill is clickable, attaches nothing, and the channel is the natural place to dig into a project. If the project's `Channel ID` is `none`, show just the bold display name (no pill, no link).
 - **Mentions:** if `mention_people` is true, render each named contributor as `<@U…>` inline in the project line (resolve via the project's collaborators or `slack_search_users`; fall back to a plain name if no ID resolves). When false (the default), contributor names are **plain text, inline** — the parenthetical attribution style of the worked example (e.g. `(Josh)`, `(Adam)`), not bold; the project name is what's bolded. Mention each person at most once per project line; never for quiet projects.
 - **No per-person blocks, no per-person counts.** Contributor names appear only inside a project's summary line. Who did *not* contribute is never listed — name presence, not absence.
 - The footer marker `seed Team Daily Digest` is **load-bearing** — Step 1 finds the prior digest by this string. Do not remove or reword it.
@@ -140,9 +139,9 @@ Rules:
 ```
 :sunrise: *seed Team Daily — what's moving* · Jun 11 → Jun 12
 
-• :large_blue_circle: *<AES-OLMAR>* — OF 9685: safety valves closed (Josh, w/ Kunkle + Winsupply), P&I drawing approved, cooling locked to Dry Coolers Aqua-Vent, vacuum architecture in
-• :red_circle: *<AES-WINGFLIP>* — Signal Cables ETA ~7/21 (FOB DE) is the new critical path (Josh); Alan's 6/29 return missed; AFA interim-config training decision open
-• :white_check_mark: *<AES-HTPRESS>* — frame weldment fit-up signed off (Adam)
+• :large_blue_circle: *Olmar Autoclaves and Ovens* <#C0B1V3B5HSL> — OF 9685: safety valves closed (Josh, w/ Kunkle + Winsupply), P&I drawing approved, cooling locked to Dry Coolers Aqua-Vent, vacuum architecture in
+• :red_circle: *Wing-Flip Gantry* <#C0ATZAHBLH> — Signal Cables ETA ~7/21 (FOB DE) is the new critical path (Josh); Alan's 6/29 return missed; AFA interim-config training decision open
+• :white_check_mark: *HI Temp Thermoplastics Press* <#C0B1JRLKAAD> — frame weldment fit-up signed off (Adam)
 
 *Quiet:* AMFG-TEMPER, AES-UNS — no activity since last digest
 
@@ -166,6 +165,12 @@ _seed Team Daily Digest · 3 active · 2 quiet · since Jun 11 · reply in-threa
 - **True milestone/completion detection.** The `:white_check_mark:` health code keys on decision/sign-off language in the session log and channel; it does not yet reconcile against a task board's done-state. Good enough for a daily glance; tighten if it misfires.
 
 ## Changelog
+
+# v0.1.1 — 2026-06-15 — Link project channels, not Hub canvases (stops canvas attachments)
+# - **What** — Each active project's bold display name is now followed by its **project-channel pill** (`<#channel_id>`) instead of being linked to its Hub canvas URL. Channel-less projects show just the bold display name.
+# - **Why** — Linking a Hub canvas (`/docs/…` URL) in a Slack message makes Slack **attach that canvas as a file** to the team channel — observed on the first live run (3 Hub canvases attached to #advanced-equipment), which clutters the channel's Files and broadens each canvas's access beyond its own project channel. A channel pill is clickable, attaches nothing, and the channel is the natural dig-in point.
+# - **Impact** — Spec-only; no re-paste (the Routine WebFetches this spec live), and auto-mirror to seed-specs is restored, so the next scheduled run posts clean.
+# - **Observed** — 2026-06-15 first live run (digest ts 1781555175.437389).
 
 # v0.1 — 2026-06-12 — Initial version
 # - New team-scoped Routine: one runner reads the whole `Project Registry — Core` sheet, fans out to each non-archived project's Claude canvas + channel for activity since the last digest, posts ONE project-centric summary to the team channel.
