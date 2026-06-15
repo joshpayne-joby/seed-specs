@@ -23,6 +23,7 @@ Consumers and what they pass:
 | PROJECT_SETUP.md — Collaborator Sync | `update_rows` | Paired-column write (`Collaborators` + `Collaborator Names`). Mismatch check is load-bearing here. |
 | SMARTSHEET_ROUTINE.md — daily sync | `add_rows` | Same as Workshop. Currently scoped to add-only; if the routine ever updates, it routes through this skill. |
 | One-off / ops | either | Same flow. No exceptions for "just a small fix." |
+| Drive Activity Crawler — Apps Script | `update_rows` | EXEMPTED from full flow under the "Machine-managed columns under single-writer lock" carve-out (see Failure modes). Writes only `Drive Activity Last Checked` + `Drive Activity Last Result` — both machine-only, no human edits. LockService prevents concurrent invocations. Verify-after still required. |
 
 ## Inputs the consumer must provide
 
@@ -182,6 +183,32 @@ Once the seed Activity Feed yearly-rolling sheets land, this becomes a row write
 | Column in `intended_cells` not in `live_columns` | Abort with the step 0 message. Caller passed a stale or wrong `column_id`. |
 | Rows with missing UIDs detected during gap scan | Non-blocking warning. Surface the Project IDs and Display Names. Do NOT abort the current write. Continue through steps 3-9 normally. The warning is the signal — closing it is the operator's responsibility. |
 
+## Carve-out — Machine-managed columns under single-writer lock (v0.5+)
+
+A narrow exemption for writers whose target columns satisfy ALL of:
+
+1. **Machine-managed only — target columns only.** No human edits the *written* columns. No other automation writes them. The exempted writer is the sole producer. *Source columns* read by the writer may be human-editable (e.g., the Drive Activity Crawler reads `Drive Folder URL`, which is PM-editable — this is fine; the constraint applies to the write set, not the read set).
+2. **Single-writer lock enforced.** The writer prevents concurrent invocations of itself via a runtime lock primitive (Apps Script `LockService`, file lock, distributed lock, etc.). Two instances of the writer cannot race against each other.
+3. **No paired-column semantics.** The exempted columns are not part of a `(name, id)` paired pair (like `Collaborators` + `Collaborator Names`) where mismatch detection is load-bearing.
+4. **Verify-after still required.** The writer re-reads the affected rows after the PUT and confirms intended values landed. Mismatch throws.
+
+Under these conditions, the writer may skip:
+- Step 1 — sheet version snapshot (no concurrent writers means no race to lose)
+- Step 2's UID auto-gen and gap scan (the exempted columns don't include UID)
+- Step 4 — paired-column mismatch (no pairs)
+- Step 5 — whitelist (no human consumer to gate)
+- Step 6 — version recheck (already handled by the writer's own lock)
+
+Steps 0 (schema read), 3 (compute diff), 7 (write), 8 (verify), and 9 (log) still apply. (Note: Step 3's idempotent no-op short-circuit will not fire for writers whose target columns include a timestamp that changes every run — e.g., `Drive Activity Last Checked`. The step still applies in principle; it's just never the optimization path for those writers.)
+
+**Recorded exemptions:**
+
+| Consumer | Target columns | Lock | Rationale |
+|---|---|---|---|
+| Drive Activity Crawler Apps Script (`routines/drive-activity-crawler/`) | `Drive Activity Last Checked`, `Drive Activity Last Result` | `LockService.getScriptLock()` | Apps Script can't invoke a Claude skill; columns are machine-only manifests; verify-after enforced in the script. Documented since v0.5 (2026-06-04). |
+
+If you add a human-editable column to an exempted writer's write set, the carve-out no longer holds. Either (a) port the full safe-write protocol into the writer's runtime or (b) split the human-editable column off into a separate writer that uses the full protocol.
+
 ## What this skill does NOT do
 
 - **Read or write Slack canvases.** Canvas write rules live in [`contracts/canvas-write-rules.md`](../../../contracts/canvas-write-rules.md) v1.0+ (canonical home; CT mirror + PROJECT_SETUP keep references). Different concern.
@@ -210,6 +237,9 @@ Sheet ID: `4898009463607172` | Workspace ID: `7647124075636612`
 | Last Session | `6305984948768644` | DATE | Owner-writable. |
 | Added | `4054185135083396` | DATE | Set at creation. Immutable. |
 | Notes | `8557784762453892` | TEXT | PM-editable. |
+| Drive Folder URL | `6333790778855300` | TEXT_NUMBER | PM-editable. URL of the project's Drive folder. Consumed by the Drive Activity Crawler Apps Script to seed its recursive crawl. Blank → script skips the row. Added 2026-06-07 (v0.5). |
+| Drive Activity Last Checked | `4081990965170052` | TEXT_NUMBER | Machine-managed by Drive Activity Crawler. ISO 8601 timestamp of the most recent crawl. TEXT_NUMBER (not ABSTRACT_DATETIME) for clean verify-after round-trip — Smartsheet may normalize ABSTRACT_DATETIME values on read-back, which would cause spurious verify failures. Do NOT human-edit. Added 2026-06-07 (v0.5). |
+| Drive Activity Last Result | `8585590592540548` | TEXT_NUMBER | Machine-managed by Drive Activity Crawler. JSON manifest `{ new_files[], total_count, truncated, scanned_at, since }` of files added/modified since `Drive Activity Last Checked`. Do NOT human-edit. Added 2026-06-07 (v0.5). |
 
 This table is a **quick reference for humans reading the doc**, not the canonical column-ID map for the protocol. As of v0.3, the protocol reads the live schema via `get_columns` as Step 0 and resolves every column reference through `live_columns`. IDs in the table above are accurate as of the date in the most recent changelog entry, but the protocol works correctly even when the table lags behind a schema change.
 
@@ -217,6 +247,7 @@ When IDs change (a column is added, renamed, or removed), update this table — 
 
 ## Changelog
 
+- **v0.5 — 2026-06-04** — Machine-managed columns under single-writer lock carve-out + 3-column schema migration for the Drive Activity Crawler. New section in Failure modes documents the carve-out conditions (machine-only target, runtime lock primitive, no paired-column semantics, verify-after retained) and the steps that may be skipped under them (1, 2's UID work, 4, 5, 6). Schema table gains `Drive Folder URL` (PM-editable, seeds the crawler), `Drive Activity Last Checked` (machine-managed timestamp), and `Drive Activity Last Result` (machine-managed JSON manifest). Column IDs marked TBD pending the actual Smartsheet migration — script aborts loudly if columns missing. *(IDs backfilled 2026-06-07 in PR #117 — see schema table for resolved values.)* Consumer table row added for the Drive Activity Crawler with the exemption rationale. The exemption exists because Apps Script can't invoke a Claude skill and porting the full protocol into the script is overkill for write sets that satisfy the four conditions; the carve-out is deliberately narrow and other exempted writers must be added to the exemption table here to be legitimized.
 - **v0.4 — 2026-05-17** — Added UID gap scan to Step 2. On every `add` or `update` operation, after the per-operation checks, scan the UID column for rows where the value is blank, null, or `—`. Surface a non-blocking warning listing affected Project IDs and Display Names. Does not abort the current write. Fires on every run until the gap is closed. Added corresponding failure-mode row. Motivated by `AES-DBLCONEX`, which predates the UID sprint and has never been backfilled.
 - **v0.3 — 2026-05-11** — Added Step 0 (read live schema via `get_columns`) and rewrote steps 2 / 4 / 5 / 7 to resolve every column reference through `live_columns[title]` rather than hardcoded IDs. The protocol now works correctly when a new column is added to a sheet without a lockstep update to this skill. Triggered by today's column add: `Claude Canvas ID` (id `3909624393928580`, index 7) was added to `Project Registry — Core` for Path A (joby/project-routines#6) without updating this skill in lockstep — Step 0 + live-resolved references mean that gap is non-fatal. Step 2's UID auto-gen branch begins with an explicit `live_columns["UID"]` existence check, separating the "column missing" failure mode (schema doesn't support auto-gen) from the existing "column present but empty" backfill abort. Schema reference table demoted to quick-reference status (still updated to include `Claude Canvas ID`). Per slim-routines#5 (token budget): the extra `get_columns` call is cacheable across multiple writes in one session.
 - **v0.2 — 2026-05-08** — UID surrogate key added to `Project Registry — Core` schema. New TEXT_NUMBER column `UID` (column_id `2844130685521796`) at index 0, format `P-NNNN` variable-width zero-pad. Auto-generated by step 2 of the flow on every `add` operation; reads max-UID inside the version-snapshot window for race-safety. Three guard rails baked in: reject manual UID input, abort on missing UID column data (no `P-0001` default that would collide post-backfill), collision check on the computed value. Live data backfill of existing rows handled separately in numeric UID sprint Session 5 — see `notes/launch-checklist.md`.

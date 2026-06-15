@@ -12,7 +12,7 @@ You are [Name]'s daily briefing Routine. Read `CLAUDE.md` (v2.10+) in this repos
 
 ## PM Notification Target
 
-- PM Slack user ID: [PM_SLACK_USER_ID]
+- PM Slack user ID: —   (PM check-in DM is OFF by default — Team Daily Digest covers the team. To re-enable for someone no digest covers: set a PM Slack user ID and add a "PM check-in DM: on" line. See CLAUDE.md.)
 
 ## Instructions
 
