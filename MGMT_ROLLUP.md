@@ -22,7 +22,7 @@ You are a seed Management Rollup Routine — a **bi-weekly** reader that, across
 - **What needs leadership input?** — a cross-cutting section of the decisions and unblocks the exec — and only the exec — can act on.
 - **What's coming up — and is it resourced?** — a "Coming Up Next" section with a **resourced vs. bandwidth-limited** split.
 
-**Audience-altitude rule (load-bearing):** this canvas is written for a **skip-level executive** (`rollup_audience_name`) — the boss of the team's direct manager. Pitch it **strategic, not peer-status**: focus-area health, critical path, decisions, capacity — never a task-by-task log and **never a per-person scorecard**. The exec sees how the focus areas are doing; they never see how much any one person is carrying (that detail is the runner's private 1:1 view — see the Step 3.5 privacy invariant). The concrete test for "right altitude": a per-project line states an **outcome + the critical path + the risk to the window** in one or two sentences, never an enumeration of completed sub-tasks.
+**Audience-altitude rule (load-bearing):** this canvas is written for a **skip-level executive** (`rollup_audience_name`) — the boss of the team's direct manager. Pitch it **strategic, not peer-status**: focus-area health, critical path, decisions, capacity — never a task-by-task log and **never a per-person scorecard**. The exec sees how the focus areas are doing; they never see how much any one person is carrying (that detail is the runner's private 1:1 view — see the Step 3.5 privacy invariant). The concrete test for "right altitude": a per-project line states an **outcome + the critical path + the risk to the window** in **at most 3 sentences (hard cap)**, never an enumeration of completed sub-tasks, and never shop-floor specifics (part numbers, dimensions, amperages) — that detail lives on the project's board, not here.
 
 You are **read-only everywhere except the canvas write and the single ping post**. You write no Smartsheet cell, no DM, no other canvas. Your output is one full-replace of the management canvas plus one ping message — paralleling the digest's "read-only everywhere except the single Slack post," extended for the canvas write (the rollup is a writer like the Drift Watcher, not post-only like the digest).
 
@@ -40,7 +40,7 @@ Read these from the Routine prompt at session start:
 
 - `rollup_canvas_id` — Slack canvas ID (F-prefix) of the **standing management canvas** (the exec's). The safe-write `update` target. REQUIRED for the canvas write; if unset or `—`, compose the rollup and log it in chat but **skip the write** (graceful, mirrors the digest's `team_digest_channel_id` gating and Drift Watcher Step 4.5 gating). Created once by Josh, refreshed every period — never `create` on a steady run.
 - `rollup_ping_channel_id` — Slack channel ID (C-prefix) where the short ping posts. REQUIRED for the ping; if unset or `—`, **skip the ping only** (the canvas still refreshes). This channel is also the **dedup watermark stream** (see Step 1).
-- `rollup_audience_name` — the skip-level exec's name, e.g. `Chris`. Used in the canvas intro line, the `*Last updated*` watermark, and the ping copy. **Do not hardcode a last name or invent any F/C ID** — these are deploy config, parameterized here.
+- `rollup_audience_name` — the skip-level exec's name, e.g. `Chris`. Used in the **ping copy only** (NOT the canvas body — the canvas carries no audience-named intro or stamp, so it never reads oddly to the audience). **Do not hardcode a last name or invent any F/C ID** — these are deploy config, parameterized here.
 - `smartsheet_core_sheet_id` — `Project Registry — Core` sheet ID. Default `4898009463607172`.
 - `owner_slack_id` / `owner_name` — the runner (Josh; `UNDBYGY1J`).
 - `claude_slack_user_id` — OPTIONAL. If set, used in the footer attribution / as a fallback ping-poster identity in the watermark scan (Step 1).
@@ -125,7 +125,7 @@ The rollup is the **future management rollup** the digest's Step 6 and Out-of-sc
 
 Pivot the `(person, project, summary)` tuples a **third way** — by focus area — using `focus_area_map` (the digest pivots by project, then by person; the rollup pivots by focus-area bucket). **`focus_area_map` is config, not a Registry column.** Mechanics:
 
-- For each focus area, gather its mapped Project IDs; for each project render its **health emoji** + **bold display name** + a one-line Status + critical-path summary built from that project's tuples, at **skip-level altitude** — outcome + critical path + risk-to-window, one or two sentences per project max. **Do not name individual contributors in the focus-area lines** — at this altitude the **project** is the unit, not the person (the digest names contributors inline because its audience knows the ICs; that rationale inverts for a skip-level exec). A contributor name appears in the rollup only as the **owner of a decision** in Items Needing Leadership Input, never as a contribution credit.
+- For each focus area, gather its mapped Project IDs; for each project render its **health emoji** + **bold display name** + a one-line Status + critical-path summary built from that project's tuples, at **skip-level altitude** — outcome + critical path + risk-to-window, **at most 3 sentences per project (a hard cap)**, and **no shop-floor specifics** — part numbers, dimensions, and amperages belong on the project board, not a skip-level canvas. **Do not name individual contributors in the focus-area lines** — at this altitude the **project** is the unit, not the person (the digest names contributors inline because its audience knows the ICs; that rationale inverts for a skip-level exec). A contributor name appears in the rollup only as the **owner of a decision** in Items Needing Leadership Input, never as a contribution credit.
 - A project with **no mapped focus area** surfaces under an **Unmapped** catch-all so the config gap is visible (raise-mismatches-up) — never silently dropped.
 - **Cross-cutting sections AFTER the focus-area groups:**
   - `## Items Needing Leadership Input` — decisions and asks the exec can act on. **Altitude filter (load-bearing):** include an item ONLY if it needs decision or resourcing authority **above the project owner** — a cross-org unblock, budget/headcount, or a go/no-go on a slip. An operational blocker the owner is already working gets a `:red_circle:` in its focus-area line but does **not** escalate here. This keeps the section a skip-level ask list, not a blocker dump.
@@ -173,7 +173,7 @@ The rollup **writes a canvas**, so this is the primary format section (the canva
 **Canvas body template** (no H1; the canvas name lives in the Slack title slot; `rollup_audience_name`, the date, and the period live in the body):
 
 ```markdown
-*Last updated: YYYY-MM-DD HH:MM PT · seed Management Rollup · covering <since-date> → <today> · for <rollup_audience_name>*
+*Last updated: YYYY-MM-DD HH:MM PT · seed Management Rollup · covering <since-date> → <today>*
 
 ## Iris / Watsonville
 
@@ -208,9 +208,10 @@ _seed Management Rollup · [A] focus areas · [P] active · period <since> → <
 
 Rules:
 - **No body H1.** The body has no `# ` heading at all — it opens with the `*Last updated*` line. The canvas name lives only in the Slack title slot (set once at create). This is the ghost-h1 / double-render guard: the safe-write title/body-H1 collision check (Step 2) is create-only and does not run on the rollup's steady-state `update`, so a body H1 would render twice with nothing to catch it. (Follows the Drift Watcher's body template exactly.)
+- **No preamble / Overview section.** The body opens with the `*Last updated*` line and goes **straight to the first focus-area H2** — do NOT add an "Overview", "Summary", or intro-prose section. The structure is self-explanatory, and an intro that addresses the audience by name ("…canvas for &lt;name&gt;") reads oddly to that audience.
 - **Watermark line.** The line below — the `*Last updated: …*` stamp — is **both** the human period label **and** the canvas-side dedup watermark (parsed on read in Step 5). The printed date is for display only; the authoritative dedup signal is the ping `ts` mapped to `period_index` plus the fortnight gate, never this string.
 - **Grouped by focus area**, each an H2 from `focus_area_map`, each project a bullet leading with the health emoji + bold display name. Omit a focus-area section that has zero active projects (mirrors the Drift Watcher's "omit any empty section"); omit the Unmapped section if every active project is mapped; omit the capacity overlay if the Step-3.5 read was skipped/empty.
-- **Skip-level altitude per line** — outcome + critical path + risk-to-window, one or two sentences. No enumerated sub-task checklists; **no individual contributor names** in the focus-area lines.
+- **Skip-level altitude per line** — outcome + critical path + risk-to-window, **at most 3 sentences (hard cap)**. No enumerated sub-task checklists, **no part numbers / dimensions / amperages** (that lives on the project board); **no individual contributor names** in the focus-area lines.
 - **No per-person scorecard / no by-person blocks / no per-person tally** anywhere. Skip-level exec surface — focus-area health only.
 - **Canvas image-mention form.** If the body ever links a channel, it uses the **canvas** form `![](#C…)` (the skill writes this) — never the chat form. The settled design links nothing in the canvas body.
 - The footer marker `seed Management Rollup` is **load-bearing** if you choose canvas-stamp dedup — keep it greppable and **distinct** from `seed Team Daily Digest` and `seed Per-Person Log`.
@@ -237,7 +238,7 @@ Rules:
 **Canvas body** (note: outcome + risk per line, no enumerated sub-tasks, no contributor names):
 
 ```markdown
-*Last updated: 2026-06-15 07:25 PT · seed Management Rollup · covering Jun 1 → Jun 15 · for Chris*
+*Last updated: 2026-06-15 07:25 PT · seed Management Rollup · covering Jun 1 → Jun 15*
 
 ## Iris / Watsonville
 
@@ -296,6 +297,10 @@ _seed Management Rollup · 3 focus areas · 3 active · since Jun 1_
 
 ## Changelog
 
+# v0.2 — 2026-06-16 — Altitude tightening after the first live run
+# - **What** — Per-project lines capped at **3 sentences (hard)** (was "one or two") and must omit shop-floor specifics (part numbers, dimensions, amperages — those live on the project board). Added an explicit **no-preamble/Overview** rule (body goes straight from the `*Last updated*` line to the first focus-area H2). Removed the audience name from the canvas `*Last updated*` stamp + worked example; `rollup_audience_name` now surfaces only in the ping copy.
+# - **Why** — The first live confidence run (2026-06-16, period 0) composed correct content but at manager-altitude, not skip-level: several per-project lines ran 4–6 sentences with die clearances / PO numbers / amperages, and the model added an "Overview: …canvas for <name>" preamble that reads oddly if the exec reads it. A hard 3-sentence cap + no shop-floor specifics + no preamble lands the intended skip-level altitude.
+# - **Impact** — Spec-only; auto-mirrors to seed-specs and applies on the next composing run, no re-paste. The already-written period-0 canvas keeps its verbose form until the next compose (period 1, ~Jun 29) unless manually refreshed. No mechanism / gate / watermark / privacy change.
 # v0.1 — 2026-06-16 — Initial version
 # - **What** — New team-scoped Routine on the claude.ai-Routine substrate (zero new infra): one runner reads the whole `Project Registry — Core` sheet, fans out to each non-archived project's Claude canvas + channel for activity since the last rollup, groups BY FOCUS AREA, full-replaces a standing management canvas, and posts ONE short ping pointing at it.
 # - **Structural clone of TEAM_DIGEST.md v0.2** (read layer — whole-sheet read, the 4 load-bearing column IDs, parallel batched ~6 canvas reads, the 4-code health emoji, the `(person, project, summary)` tuples, graceful-skip gating) **+ SMARTSHEET_DRIFT_WATCHER.md v0.3** (canvas full-replace write model + leading `*Last updated*` stamp + the gated single-post idiom for the ping). The *read-side* use of that stamp as a dedup watermark is NEW to the rollup — the Drift Watcher writes the stamp but never reads its own canvas back.
