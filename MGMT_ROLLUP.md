@@ -10,7 +10,7 @@
 
 **ONE designated runner for the whole team** (Josh), not per-person — the same single-runner shape as the Team Daily Digest (`TEAM_DIGEST.md`) and the Drift Watcher (`SMARTSHEET_DRIFT_WATCHER.md`), and the same key difference from the Daily Briefing (`CLAUDE.md`), which every collaborator runs for their own projects. The rollup reads the **team-wide project list**, groups it **by focus area**, refreshes **one standing management canvas**, and posts **one short ping** so a skip-level exec gets a strategic read of where the work sits — without the runner assembling it by hand.
 
-This is the structural twin of **both** siblings. It lifts the digest's **read layer** verbatim (whole `Project Registry — Core` read, parallel batched per-project canvas/channel reads, the 4-code health emoji, the `(person, project, summary)` tuples, graceful-skip gating). And it follows the Drift Watcher's **write model** (full-canvas replace via the safe-write skill, leading with a `*Last updated*` stamp). Where the digest only *posts* a chat message and the Drift Watcher only *writes* a canvas, the rollup does both: it writes the canvas **and** posts a ping announcing the refresh.
+This is the structural twin of **both** siblings. It lifts the digest's **read layer** verbatim (whole `Project Registry — Core` read, parallel batched per-project canvas/channel reads, the `(person, project, summary)` tuples, graceful-skip gating) — though it swaps the digest's seed 4-code health emoji for a **traffic-light** scheme (Step 3.3). And it follows the Drift Watcher's **write model** (full-canvas replace via the safe-write skill, leading with a `*Last updated*` stamp). Where the digest only *posts* a chat message and the Drift Watcher only *writes* a canvas, the rollup does both: it writes the canvas **and** posts a ping announcing the refresh.
 
 **Cadence is bi-weekly** — every other week, downstream of the daily digest's accumulator. The Slack/claude.ai scheduler fires the Routine **weekly on Monday** at ~7:25 AM PT; an **in-run 14-day epoch gate** (Step 1) makes it fire **every other Monday**, so the exec gets one start-of-period read per fortnight. Cron is UTC-only and cannot express "every other week," so the every-other-week behavior lives in the run, not the cron. Monday is deliberate — a skip-level exec wants a start-of-period read, not a mid-week one; ~7:25 AM PT is a few minutes **after** the daily digest (7:15 AM PT) so the digest's Monday per-person writes have landed before the rollup's optional capacity read (Step 3.5).
 
@@ -97,12 +97,12 @@ For each non-archived project, in **parallel batches of ~6** (same pattern as th
    - Capture session-log entries dated later than `since`. Each yields a tuple: `(person, project, one-line summary)`. The session log names who worked; if an entry has no clear author, attribute to `team`.
    - Note any open `:red_circle:` callout, blocker, or "waiting on" item touched since `since` — drives the health emoji and feeds Items Needing Leadership Input.
 2. **Read the project channel** (`Channel ID`, if not `none`) for human posts since `since` — decisions, blockers, shipped/received notes. Fold material ones into the relevant summary; ignore bot/automation noise.
-3. **Health emoji** per project — use **only** these four codes (emoji-only status, per seed convention; do **not** introduce a 5th code or a richer model for the exec):
-   - `:red_circle:` **blocked/urgent** — an open blocker, a passed/imminent due date, an expiring quote/order, or anything flagged urgent.
-   - `:white_check_mark:` **done/decided** — a decision, sign-off, approval, or completion since `since`.
-   - `:large_blue_circle:` **in progress** — activity since `since` but neither of the above.
+3. **Health emoji** per project — use **only** these four **traffic-light** codes, and render the one-line status key on the canvas (see Canvas format) so the colors are never left to assumption:
+   - `:red_circle:` **blocked** — an open blocker, a passed/imminent due date, an expiring quote/order, or anything that threatens the delivery window.
+   - `:large_yellow_circle:` **at-risk** — progressing, but with a real risk: a slip, an unconfirmed date, or a pending decision that gates the next step.
+   - `:large_green_circle:` **on-track** — progressing well, a recent decision/sign-off, no open risk to the window.
    - `:white_circle:` **quiet** — no activity since `since`.
-   If both blocked and done signals appear, **blocked wins.** (Caveat carried from the digest: `:white_check_mark:` keys on decision/sign-off language, not a task-board-reconciled done-state — good enough for a period glance.)
+   If both blocked and on-track signals appear, **blocked wins.** This is a **deliberate divergence** from the digest/briefing's seed 4-code (`:red_circle:`/`:white_check_mark:`/`:large_blue_circle:`/`:white_circle:`): a skip-level exec reads red/amber/green at a glance and wants the explicit **at-risk** state the seed set lacks. The canvas always carries a status key (Canvas format) so the scheme is self-explanatory.
 4. **Per-project read failure** → record `(project, "could not read — [error]")`; do **not** drop it. It surfaces in the "Couldn't read" line of the canvas.
 
 ### 3.5. (Optional, gated) Read the per-person channel for the capacity signal
@@ -175,6 +175,8 @@ The rollup **writes a canvas**, so this is the primary format section (the canva
 ```markdown
 *Last updated: YYYY-MM-DD HH:MM PT · seed Management Rollup · covering <since-date> → <today>*
 
+> :red_circle: blocked  ·  :large_yellow_circle: at-risk  ·  :large_green_circle: on-track  ·  :white_circle: quiet
+
 ## Iris / Watsonville
 
 - [health emoji] **Project Display Name** — [one-line outcome + critical-path + risk, exec altitude]
@@ -209,6 +211,7 @@ _seed Management Rollup · [A] focus areas · [P] active · period <since> → <
 Rules:
 - **No body H1.** The body has no `# ` heading at all — it opens with the `*Last updated*` line. The canvas name lives only in the Slack title slot (set once at create). This is the ghost-h1 / double-render guard: the safe-write title/body-H1 collision check (Step 2) is create-only and does not run on the rollup's steady-state `update`, so a body H1 would render twice with nothing to catch it. (Follows the Drift Watcher's body template exactly.)
 - **No preamble / Overview section.** The body opens with the `*Last updated*` line and goes **straight to the first focus-area H2** — do NOT add an "Overview", "Summary", or intro-prose section. The structure is self-explanatory, and an intro that addresses the audience by name ("…canvas for &lt;name&gt;") reads oddly to that audience.
+- **Status key (mandatory).** Render a one-line key as a blockquote immediately under the `*Last updated*` line so the traffic-light dots are self-defining: `> :red_circle: blocked · :large_yellow_circle: at-risk · :large_green_circle: on-track · :white_circle: quiet`. Without a key, readers assume meanings.
 - **Watermark line.** The line below — the `*Last updated: …*` stamp — is **both** the human period label **and** the canvas-side dedup watermark (parsed on read in Step 5). The printed date is for display only; the authoritative dedup signal is the ping `ts` mapped to `period_index` plus the fortnight gate, never this string.
 - **Grouped by focus area**, each an H2 from `focus_area_map`, each project a bullet leading with the health emoji + bold display name. Omit a focus-area section that has zero active projects (mirrors the Drift Watcher's "omit any empty section"); omit the Unmapped section if every active project is mapped; omit the capacity overlay if the Step-3.5 read was skipped/empty.
 - **Skip-level altitude per line** — outcome + critical path + risk-to-window, **at most 3 sentences (hard cap)**. No enumerated sub-task checklists, **no part numbers / dimensions / amperages** (that lives on the project board); **no individual contributor names** in the focus-area lines.
@@ -240,14 +243,16 @@ Rules:
 ```markdown
 *Last updated: 2026-06-15 07:25 PT · seed Management Rollup · covering Jun 1 → Jun 15*
 
+> :red_circle: blocked  ·  :large_yellow_circle: at-risk  ·  :large_green_circle: on-track  ·  :white_circle: quiet
+
 ## Iris / Watsonville
 
-- :red_circle: **Wing-Flip Gantry** — At risk for the Q3 integration window: Signal Cables ETA (~7/21, FOB DE) is the critical path, and an AFA interim-config training go/no-go is still open.
-- :large_blue_circle: **Olmar Autoclaves and Ovens** — Autoclave build on track, no open risks; design locked and progressing toward fabrication.
+- :large_yellow_circle: **Wing-Flip Gantry** — At risk for the Q3 integration window: Signal Cables ETA (~7/21, FOB DE) is the critical path, and an AFA interim-config training go/no-go is still open.
+- :large_green_circle: **Olmar Autoclaves and Ovens** — Autoclave build on track, no open risks; design locked and progressing toward fabrication.
 
 ## Thermoplastics
 
-- :white_check_mark: **HI Temp Thermoplastics Press** — Fabrication complete and signed off; entering controls bring-up next period.
+- :large_green_circle: **HI Temp Thermoplastics Press** — Fabrication complete and signed off; entering controls bring-up next period.
 
 ## Production Support
 
@@ -293,10 +298,14 @@ _seed Management Rollup · 3 focus areas · 3 active · since Jun 1_
 - **The team's direct manager's weekly / peer updates.** This rollup is for the **skip-level exec** (`rollup_audience_name`, e.g. Chris). The team's direct manager (one level below the exec) gets separate weekly / more-frequent updates Josh handles himself — **out of scope here.** (This supersedes `routines/aes-update-engine/PLAN_FOR_BOTH.md`'s "→ Brennan" audience string for this artifact, per Josh 2026-06-16: the rollup's audience is the skip-level exec, not the direct manager.)
 - **Structured / self-reported capacity beyond the 1:1-log channel.** The capacity signal is whatever the accumulated per-person threads imply (Step 3.5). A structured "bandwidth for more" field feeding the resourced/bandwidth-limited split is a later artifact (mirrors the digest's residual out-of-scope).
 - **Multi-runner / multi-workspace.** v0.1 runs on one account against one management canvas + one ping channel. A second exec or workspace installing the rollup is deferred until there's a second consumer.
-- **Richer health model.** The four seed health codes are deliberate; no 5th code, no exec-only severity model. Tighten only if a real period glance misfires.
+- **Richer health model.** The four **traffic-light** codes (blocked / at-risk / on-track / quiet, with the canvas key) are deliberate — no 5th code, no finer severity scale. Tighten only if a real period glance misfires.
 
 ## Changelog
 
+# v0.3 — 2026-06-16 — Traffic-light health scheme + mandatory status key
+# - **What** — The per-project health emoji switches from the seed 4-code (`:red_circle:`/`:white_check_mark:`/`:large_blue_circle:`/`:white_circle:`) to a **traffic-light** scheme: `:red_circle:` blocked · `:large_yellow_circle:` at-risk · `:large_green_circle:` on-track · `:white_circle:` quiet. The canvas now carries a **mandatory one-line status key** (a blockquote under the `*Last updated*` line) so the colors are never left to assumption.
+# - **Why** — A skip-level exec reads red/amber/green at a glance and wants an explicit **at-risk** state the seed 4-code lacks (it carries done/in-progress instead). Josh, 2026-06-16: "traffic lights without a key or a map can be tough to fully understand — people make assumptions." So: traffic-light for legibility + a key so there's no guessing.
+# - **Scope** — A deliberate, audience-justified divergence from the framework's seed 4-code (which the digest + briefing keep). Step 3.3, the canvas template + worked example, the structural-twin note, and the Canvas-format rules all updated; the out-of-scope "richer health model" note now refers to the traffic-light set. No mechanism / gate / watermark / privacy change. Spec-only; applies on the next compose.
 # v0.2 — 2026-06-16 — Altitude tightening after the first live run
 # - **What** — Per-project lines capped at **3 sentences (hard)** (was "one or two") and must omit shop-floor specifics (part numbers, dimensions, amperages — those live on the project board). Added an explicit **no-preamble/Overview** rule (body goes straight from the `*Last updated*` line to the first focus-area H2). Removed the audience name from the canvas `*Last updated*` stamp + worked example; `rollup_audience_name` now surfaces only in the ping copy.
 # - **Why** — The first live confidence run (2026-06-16, period 0) composed correct content but at manager-altitude, not skip-level: several per-project lines ran 4–6 sentences with die clearances / PO numbers / amperages, and the model added an "Overview: …canvas for <name>" preamble that reads oddly if the exec reads it. A hard 3-sentence cap + no shop-floor specifics + no preamble lands the intended skip-level altitude.
