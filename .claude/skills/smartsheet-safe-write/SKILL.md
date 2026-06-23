@@ -1,7 +1,7 @@
 ---
 name: smartsheet-safe-write
 description: Canonical safe-write protocol for Smartsheet rows — read-before-write, mismatch check, optimistic-concurrency version guard, and verify-after. The mechanism is the precondition: invoking the skill IS reading current state, so a model cannot shortcut to a bare write. Required for any update_rows or add_rows call against `Project Registry — Core` (sheet `4898009463607172`) and applies as a default to any other Smartsheet sheet in the seed framework.
-when_to_use: Any time a seed component writes to Smartsheet — CT v2.0+ per-person registry edits, Workshop project creation, PROJECT_SETUP.md Collaborator Sync, the daily SMARTSHEET_ROUTINE.md sync, or one-off ops. Consumer-agnostic — same flow whether adding a row or updating one. The consumer decides who is allowed to call it; this skill defines how the call must be shaped.
+when_to_use: Any time a seed component writes to Smartsheet — CT v2.0+ per-person registry edits, Workshop project creation, PROJECT_SETUP.md Collaborator Sync, or one-off ops. Consumer-agnostic — same flow whether adding a row or updating one. The consumer decides who is allowed to call it; this skill defines how the call must be shaped.
 ---
 
 # Smartsheet Safe Write
@@ -21,7 +21,6 @@ Consumers and what they pass:
 | CT v2.0 — PM editing own row | `update_rows` | Whitelist applies (see below). Read row by `Project ID` lookup. |
 | Workshop — new project creation | `add_rows` | No `before_state` (row doesn't exist yet). Steps 4 and 5 collapse to "is this Project ID already in the sheet?" pre-check. |
 | PROJECT_SETUP.md — Collaborator Sync | `update_rows` | Paired-column write (`Collaborators` + `Collaborator Names`). Mismatch check is load-bearing here. |
-| SMARTSHEET_ROUTINE.md — daily sync | `add_rows` | Same as Workshop. Currently scoped to add-only; if the routine ever updates, it routes through this skill. |
 | One-off / ops | either | Same flow. No exceptions for "just a small fix." |
 | Drive Activity Crawler — Apps Script | `update_rows` | EXEMPTED from full flow under the "Machine-managed columns under single-writer lock" carve-out (see Failure modes). Writes only `Drive Activity Last Checked` + `Drive Activity Last Result` — both machine-only, no human edits. LockService prevents concurrent invocations. Verify-after still required. |
 
